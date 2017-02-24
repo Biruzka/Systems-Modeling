@@ -41,6 +41,9 @@ public class ReaderWriter {
                 statistic.put(key, value);
             }
 
+            book.close();
+            fis.close();
+
         } catch (FileNotFoundException fe) {
             fe.printStackTrace();
         } catch (IOException ie) {
@@ -50,10 +53,7 @@ public class ReaderWriter {
     }
 }
 
-
-//            Counting
-
-            // writing data into XLSX file
+//             writing data into XLSX file
 //            Map<String, Object[]> newData = new HashMap<String, Object[]>();
 //            newData.put("7", new Object[] { 7d, "Sonya", "75K", "SALES", "Rupert" });
 //            newData.put("8", new Object[] { 8d, "Kris", "85K", "SALES", "Rupert" });
@@ -84,9 +84,9 @@ public class ReaderWriter {
 //                    }
 //                }
 //            }
-
-            // open an OutputStream to save written data into Excel file
-
+//
+//             open an OutputStream to save written data into Excel file
+//
 //            FileOutputStream os = new FileOutputStream(excel);
 //            book.write(os);
 //            System.out.println("Writing on Excel file Finished ...");
