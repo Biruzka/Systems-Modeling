@@ -132,7 +132,7 @@ public class StatisticModel {
         for (int i = 0; i < this.n; i++)
         {S3+=yy[i];
             u1[i]=0;}
-        S3=S3/5;
+        S3=S3/this.n;
         for (int m = 0; m < this.n; m++){
             u1[m]=(z[0]+z[1]*ff[1][m]+z[2]*ff[2][m]-yy[m])*(z[0]+z[1]*ff[1][m]+z[2]*ff[2][m]-yy[m]);
             S1+=u1[m];
