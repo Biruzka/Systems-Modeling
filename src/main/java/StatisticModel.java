@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -23,24 +24,27 @@ public class StatisticModel {
     private Map<Integer,Double> Factor3X;
     private Map<Integer,Double> Y;
     private int n = 0;
+    private double dw = 0;
 
     private double[][] FactorsX;
     private double[] FactualResultsY;
+    private double[] ModelResultsY;
+    private double[] RegressionResidueE;
 
 
     public StatisticModel() {
-        Factor0X = new HashMap<Integer,Double>();
-        Factor1X = new HashMap<Integer,Double>();
-        Factor2X = new HashMap<Integer,Double>();
-        Factor3X = new HashMap<Integer,Double>();
-        Y = new HashMap<Integer,Double>();
+        this.Factor0X = new HashMap<Integer,Double>();
+        this.Factor1X = new HashMap<Integer,Double>();
+        this.Factor2X = new HashMap<Integer,Double>();
+        this.Factor3X = new HashMap<Integer,Double>();
+        this.Y = new HashMap<Integer,Double>();
     }
 
-    public void importStatistic2() {
-        FactorsX = new double[][]{{2,4,5,6,8},{4,7,3,2,1},{2,40,8,90,1},{4,5,60,7,80}};
-        FactualResultsY = new double[] { 20 , 40, 570,760,800};
-        this.n = 5;
-    }
+//    public void importStatistic2() {
+//        FactorsX = new double[][]{{2,4,5,6,8},{4,7,3,2,1},{2,40,8,90,1},{4,5,60,7,80}};
+//        FactualResultsY = new double[] { 20 , 40, 570,760,800};
+//        this.n = 5;
+//    }
 
     public void importStatistic() {
         try {
@@ -92,23 +96,25 @@ public class StatisticModel {
             ie.printStackTrace();
         }
 
-        FactorsX = new double[4][this.n];
-        FactualResultsY = new double[this.n];
+        this.FactorsX = new double[4][this.n];
+        this.FactualResultsY = new double[this.n];
+        this.ModelResultsY = new double[this.n];
+        this.RegressionResidueE = new double[this.n];
 
         for (Map.Entry<Integer,Double> pair : Y.entrySet()) {
-            FactualResultsY[pair.getKey()]=pair.getValue();
+            this.FactualResultsY[pair.getKey()]=pair.getValue();
         }
             for (int i=0; i<this.n; i++){
-                FactorsX[0][i] = Factor0X.get(i);
-                FactorsX[1][i] = Factor1X.get(i);
-                FactorsX[2][i] = Factor2X.get(i);
-                FactorsX[3][i] = Factor3X.get(i);
+                this.FactorsX[0][i] = Factor0X.get(i);
+                this.FactorsX[1][i] = Factor1X.get(i);
+                this.FactorsX[2][i] = Factor2X.get(i);
+                this.FactorsX[3][i] = Factor3X.get(i);
             }
     }
 
 
 
-    public double[] getModel(double[][]factors, double[]factualResults){
+    public double[] getModel(double[][]factors, double[]factualResults, int n){
         double[] z= new double[3];
         Jama.Matrix A1=new Jama.Matrix(factors);
         A1.print(10, 2);
@@ -116,7 +122,7 @@ public class StatisticModel {
         Jama.Matrix F1=A1.times(B1);
         Jama.Matrix F4=F1.inverse();
         Jama.Matrix F2=F4.times(A1);
-        Jama.Matrix C=new Jama.Matrix(factualResults,this.n);
+        Jama.Matrix C=new Jama.Matrix(factualResults,n);
         Jama.Matrix F3=F2.times(C);
         z=F3.getColumnPackedCopy();
         for (int i = 0; i < 3; i++) {
@@ -145,8 +151,149 @@ public class StatisticModel {
     }
 
 
+    public double countDW(double[] E, int n){
+        double dw = 0;
+        double numerator = 0;
+        double denominator = 1;
 
-    public void count(){
+        for (int i = 1; i < n; i++) {
+            numerator+=(E[i]-E[i-1])*(E[i]-E[i-1]);
+        }
+
+        for (int i = 0; i < n; i++) {
+            denominator+=E[i]*E[i];
+        }
+
+        dw = numerator/denominator;
+        System.out.println("DW= " + dw);
+        return dw;
+    }
+
+
+    public double[] countModelY1(double[] z, double[][]x, int n){
+        double[] ModelY = new double[n];;
+
+        System.out.println("modelResults Y");
+        for (int yy = 0; yy < n; yy++) {
+            ModelY[yy]=z[0]+z[1]*x[1][yy]+z[2]*x[2][yy];
+            System.out.println(  ModelY[yy]);
+        }
+        return ModelY;
+    }
+
+    public double[]  countRegressionResidueE(double[] FactualY, double[] ModelY, int n) {
+        double[] RRE = new double[n];
+        System.out.println("RegressionResidueE");
+        for (int e = 0; e < n; e++) {
+            RRE[e]=FactualY[e]-ModelY[e];
+            System.out.println( RRE[e]);
+        }
+        return RRE;
+    }
+
+
+
+//    public double EForGolCv () {
+//
+//    }
+
+    public boolean countGolfildCvant(double[] FactualY, double[] ModelY, double[][]X, int n) {
+        boolean heteroscedasticity;
+        double Fkr = 1.87; //по таблице - при n=96 a=0.05 m=2 k=n/3=32 v=k-m-1(32-2-1)=29;
+        double S1=0;
+        double S3=0;
+        double F=0;
+        int k = (int)n/3; //96/3 = 32
+
+        double[] FactualYGC = new double[n];
+        FactualYGC = FactualY;
+        double[] ModelYGC = new double[n];
+        ModelYGC = ModelY;
+        double[][]XGC = new double[3][n];
+        XGC = X;
+
+
+        System.out.println("СОРТИРОВКА ДО");
+
+        Sort s = new Sort();
+        s.testQuickSort(ModelYGC,FactualYGC,XGC, n);
+        System.out.println("СОРТИРОВКА ПОСЛЕ");
+        System.out.println(Arrays.toString(ModelYGC));
+        System.out.println(Arrays.toString(FactualYGC));
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < n; j++) {
+                System.out.print(XGC[i][j]);
+                System.out.print("  ");
+            }
+            System.out.println();
+        }
+        double[] ZGC;
+
+        int nS1 = k;
+        int nS2 = n-k;
+
+        double[][] XGCS1 = new double[3][nS1];
+        double[] FactualYGCS1 = new double[nS1];
+        double[] ModelYGCS1 = new double[nS1];
+        double[] RegressionResidueES1  = new double[nS1];
+        double[] zS1 = new double[3];
+
+        double[][] XGCS2 = new double[3][nS2];
+        double[] FactualYGCS2 = new double[nS2];
+        double[] ModelYGCS2 = new double[nS2];
+        double[] RegressionResidueES2  = new double[nS2];
+        double[] zS2 = new double[3];
+
+
+        //создаем модель для S1 и считаем S1
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < nS1; j++) {
+                XGCS1[i][j]=XGC[i][j];
+            }
+        }
+        for (int i = 0; i < nS1; i++) {
+            FactualYGCS1[i] = FactualYGC[i];
+        }
+
+        zS1 = this.getModel(XGCS1, FactualYGCS1, nS1);
+        ModelYGCS1 = this.countModelY1(zS1,XGCS1,nS1);
+        RegressionResidueES1 = this.countRegressionResidueE(FactualYGCS1,ModelYGCS1,nS1);
+        for (int i = 0; i < nS1; i++) {
+            S1+=RegressionResidueES1[i]*RegressionResidueES1[i];
+        }
+        System.out.println("S1 " +S1);
+
+        //создаем модель для S2 и считаем S2
+        for (int i = 0; i < 3; i++) {
+            for (int j = nS2-1; j < n; j++) {
+                for (int l = 0; l < nS2-1; l++) {
+                    XGCS2[i][l]=XGC[i][j];
+                }
+            }
+        }
+        for (int i = 0; i < nS2; i++) {
+            for (int j = nS2-1; j < n; j++) {
+                FactualYGCS2[i] = FactualYGC[j];
+            }
+        }
+
+        zS2 = this.getModel(XGCS2, FactualYGCS2, nS2);
+        ModelYGCS2 = this.countModelY1(zS2,XGCS2,nS2);
+        RegressionResidueES2 = this.countRegressionResidueE(FactualYGCS2,ModelYGCS2,nS2);
+        for (int i = 0; i < nS2; i++) {
+            S3+=RegressionResidueES2[i]*RegressionResidueES2[i];
+        }
+        System.out.println("S3 " +S3);
+
+        F = S3/S1;
+
+        heteroscedasticity = (F-Fkr)>0;
+        System.out.println("F="+F+"Fkr="+Fkr+" heteroscedasticity: " + heteroscedasticity);
+        return heteroscedasticity;
+    }
+
+    public void countModel1(){
         double[][]f=new double[3][this.n];
         int ii = 0;
         for (int i = 0; i < this.n; i++) {
@@ -163,11 +310,20 @@ public class StatisticModel {
                     System.out.println("f[1]["+k+"]="+f[1][k]);
                     System.out.println("f[2]["+k+"]="+f[2][k]);
                 }
-                double[] r = this.getModel(f, FactualResultsY);
-                this.R(f, FactualResultsY, r);
+                double[] r = this.getModel(f, this.FactualResultsY, this.n);
+                this.ModelResultsY = this.countModelY1(r,f,this.n);
+                this.RegressionResidueE = this.countRegressionResidueE(this.FactualResultsY,this.ModelResultsY,this.n);
+                this.dw = this.countDW(this.RegressionResidueE, this.n);
+                this.R(f, this.FactualResultsY, r);
+                this.countGolfildCvant(this.FactualResultsY, this.ModelResultsY , f, this.n);
+
+
+//                Голфилд Квант
             }
         }
     }
+
+
 
     public void toShow() {
         System.out.println("STATISTIC");

@@ -1,8 +1,12 @@
-import java.io.IOException;
+import java.util.Arrays;
+
 
 /**
  * Created by biruzka on 19.02.17.
  */
+
+
+
 public class Main {
 
 //    САП, Ирвин, МНК, отклонения, прогноз
@@ -20,7 +24,9 @@ public class Main {
     public static void main(String[] args) {
         StatisticModel statisticUk = new StatisticModel();
         statisticUk.importStatistic();
-        statisticUk.count();
+        statisticUk.countModel1();
 
     }
+
+
 }
