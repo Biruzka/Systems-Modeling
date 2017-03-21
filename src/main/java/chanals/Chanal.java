@@ -5,10 +5,17 @@ package chanals;
  */
 public class Chanal {
     double a;
+    int countPoints;
+
     double b;
+
     double firstPoints;
     double lastPoints;
-    int countPoints;
+
+    public Chanal(double a, int countPoints) {
+        this.a = a;
+        this.countPoints = countPoints;
+    }
 
     public double getA() {
         return a;

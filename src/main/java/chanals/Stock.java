@@ -9,7 +9,10 @@ public class Stock {
     double[] time;
     double[] stockStatistic;
     int countPointsChanalAverage;
-    int chanalWidth = 100;
+    double chanalWidth = 0.3;
+    int averPointsInChanal=0; //сколько в среднем точек в канале
+    Chanal[] chanals;
+
     int n;
 
     public Stock(double[] stockStatistic, int n) {
@@ -19,21 +22,83 @@ public class Stock {
         for (int i = 0; i < this.n; i++) {
             time[i] = i;
         }
+        this.chanals=new Chanal[n];
     }
 
-    public void countTrades() {
+//    public void countTrades() {
+//
+//        double a,b;
+//        int firstP = 0;
+//        int k = 6;
+//        firstP = 1;
+//        double[] koeff = this.koeff(firstP, 5);
+//        int s = k;
+////        for (int i=1;i<this.n-10;i++)
+//        for (int i=1;i<15;i++)
+//        {
+//            boolean first = this.check(s, koeff);
+//            boolean sec = this.check(s+1, koeff);
+//            if ( first == false && sec==false)
+//            {
+//                //фиксация канал
+//
+//                if (koeff[0]>0.2) {
+//                    this.averPointsInChanal++;
+//                    chanals[averPointsInChanal] = new Chanal(koeff[0],k);
+//                }
+//
+//                System.out.println("");
+//                System.out.println("new chanal");
+//                System.out.println("********");
+//                System.out.println(" ");
+//                firstP = s;
+//                koeff = this.koeff(firstP, 5);
+//                k = 6;
+//                s = s+5;
+//                System.out.println("s="+s);
+//            }
+//            else
+//            {
+//                System.out.println("trade update");
+//                koeff = this.koeff(firstP, k);
+//                k = k+1;
+//                s = s+1;
+//            }
+//
+//        }
+//        int sumP=0;
+//        for (int i = 1; i <= averPointsInChanal; i++) {
+//            System.out.println();
+//            System.out.println("A: " + chanals[i].a + "   points " + chanals[i].countPoints);
+//            sumP+=chanals[i].countPoints;
+//        }
+//        sumP=sumP/averPointsInChanal;
+//        System.out.println("aver points");
+//        System.out.println(sumP);
+//    }
+
+    public int countTrades() {
+
         double a,b;
         int firstP = 0;
         int k = 6;
         firstP = 1;
         double[] koeff = this.koeff(firstP, 5);
         int s = k;
-        for (int i=1;i<this.n-5;i++)
+//        for (int i=1;i<this.n-10;i++)
+        for (int i=1;s<(n-2);i++)
         {
             boolean first = this.check(s, koeff);
             boolean sec = this.check(s+1, koeff);
             if ( first == false && sec==false)
             {
+                //фиксация канал
+
+                if (koeff[0]>0.2) {
+                    this.averPointsInChanal++;
+                    chanals[averPointsInChanal] = new Chanal(koeff[0],k);
+                }
+
                 System.out.println("");
                 System.out.println("new chanal");
                 System.out.println("********");
@@ -53,12 +118,27 @@ public class Stock {
             }
 
         }
+        if (koeff[0]>0.2) {
+            this.averPointsInChanal++;
+            chanals[averPointsInChanal] = new Chanal(koeff[0],k);
+        }
+        System.out.println("OKI");
+        int sumP=0;
+        for (int i = 1; i <= averPointsInChanal; i++) {
+            System.out.println();
+            System.out.println("A: " + chanals[i].a + "   points " + chanals[i].countPoints);
+            sumP+=chanals[i].countPoints;
+        }
+        sumP=sumP/averPointsInChanal;
+        System.out.println("aver points");
+        System.out.println(sumP);
+        return sumP;
     }
     /** по мнк находим апроксимирующую функцию с n точки  kтое(>=5) количество **/
 //    koeff[0] = a, koeff[1] = b;
     public double[] koeff(int n, int k)
     {
-        System.out.println("kkkkkkkkkkkk");
+        System.out.println("Points:");
         System.out.println(n);
         System.out.println(k);
         double[] koeff = new double[2];
