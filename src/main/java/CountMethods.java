@@ -45,6 +45,8 @@ public class CountMethods {
         return sum/statisticList.size();
     }
 
+
+
     public static double standardDeviation (Map<Integer,Double> statisticList) {
         double sd = 0;
 
@@ -135,4 +137,42 @@ public static double averageXi (Map<Integer,Double> statisticList) {
         return deviationsList ;
     }
 // *********МНК END*********//
+
+    public static StatisticModel[] findTwoBestModels(StatisticModel[] model, int countFamily) {
+        StatisticModel[] twoModel =  new StatisticModel[2];
+        StatisticModel[] modelSort;
+        modelSort = model;
+
+        for (int i = 0; i < countFamily; i++) {
+            for (int j = countFamily - 1; j > i; j--) {
+                if (modelSort[j].getBestModelR()>modelSort[j-1].getBestModelR()) {
+                    if (modelSort[j].getBestModelDW()<modelSort[j-1].getBestModelDW()) {
+                        if (!modelSort[j].isBestModelHeteroscedasticity() || modelSort[j].isBestModelHeteroscedasticity() == modelSort[j-1].isBestModelHeteroscedasticity()) {
+                            StatisticModel tmp = modelSort[j];
+                            modelSort[j] = modelSort[j-1];
+                            modelSort[j-1] = tmp;
+                        }
+                    }
+                }
+            }
+        }
+
+        twoModel[0] = modelSort[0];
+        twoModel[1] = modelSort[1];
+
+        return twoModel;
+    }
+
+    public static double[][] createFactorsFromModels(StatisticModel[] models, int n) {
+
+        double[][] factors = new double[2][n];
+        double[] firstBestFactors = models[0].getBestModelResultsY();
+        double[] secondBestFactors = models[1].getBestModelResultsY();
+
+        for (int i = 0; i < n; i++) {
+            factors [0][i] = firstBestFactors[i];
+            factors [1][i] = secondBestFactors[i];
+        }
+        return factors;
+    }
 }

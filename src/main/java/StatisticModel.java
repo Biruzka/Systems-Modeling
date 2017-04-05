@@ -1,4 +1,5 @@
 import Jama.Matrix;
+import org.apache.poi.ss.formula.functions.Match;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -24,12 +25,26 @@ public class StatisticModel {
     private Map<Integer,Double> Factor3X;
     private Map<Integer,Double> Y;
     private int n = 0;
-    private double dw = 0;
+    private int countFactors = 0;
+
 
     private double[][] FactorsX;
     private double[] FactualResultsY;
     private double[] ModelResultsY;
     private double[] RegressionResidueE;
+    private double dw = 0;
+    private double R;
+    private boolean heteroscedasticity;
+
+    private double[] bestModelResultsY;
+    private double bestModelR;
+    private double bestModelDW;
+    private boolean bestModelHeteroscedasticity;
+    private int bestModelFactor1;
+    private int getBestModelFactor2;
+
+
+
 
 
     public StatisticModel() {
@@ -100,6 +115,7 @@ public class StatisticModel {
         this.FactualResultsY = new double[this.n];
         this.ModelResultsY = new double[this.n];
         this.RegressionResidueE = new double[this.n];
+        this.bestModelResultsY = new double[this.n];
 
         for (Map.Entry<Integer,Double> pair : Y.entrySet()) {
             this.FactualResultsY[pair.getKey()]=pair.getValue();
@@ -110,6 +126,21 @@ public class StatisticModel {
                 this.FactorsX[2][i] = Factor2X.get(i);
                 this.FactorsX[3][i] = Factor3X.get(i);
             }
+    }
+
+
+    public void importStatisticYToX(int n, int countFactors, double[] factualResultsY, double[][] factors) {
+
+        this.n = n;
+        this.countFactors = countFactors;
+        this.FactorsX = new double[countFactors][this.n];
+        this.FactorsX = factors;
+        this.FactualResultsY = new double[this.n];
+        this.FactualResultsY = factualResultsY;
+        this.ModelResultsY = new double[this.n];
+        this.RegressionResidueE = new double[this.n];
+        this.bestModelResultsY = new double[this.n];
+
     }
 
 
@@ -165,7 +196,7 @@ public class StatisticModel {
         }
 
         dw = numerator/denominator;
-        System.out.println("DW= " + dw);
+        System.out.println("DW!!!!!!!!!!!= " + dw);
         return dw;
     }
 
@@ -213,11 +244,11 @@ public class StatisticModel {
         XGC = X;
 
 
-        System.out.println("СОРТИРОВКА ДО");
+        System.out.println("Sorting before");
 
         Sort s = new Sort();
         s.testQuickSort(ModelYGC,FactualYGC,XGC, n);
-        System.out.println("СОРТИРОВКА ПОСЛЕ");
+        System.out.println("Sorting after");
         System.out.println(Arrays.toString(ModelYGC));
         System.out.println(Arrays.toString(FactualYGC));
         for (int i = 0; i < 3; i++) {
@@ -293,13 +324,128 @@ public class StatisticModel {
         return heteroscedasticity;
     }
 
-    public void countModel1(){
+
+    public double corell(double[][] x, int n) {
+        double corell = 0;
+        double numerator=0;
+        double denominator;
+        double denominatorL=0;
+        double denominatorR=0;
+        double x1av = 0;
+        double x2av = 0;
+        double sum = 0;
+
+//        count average
+
+        for (int i = 0; i < n; i++) {
+            x1av+=x[1][i];
+        }
+        x1av = x1av/n;
+
+        for (int i = 0; i < n; i++) {
+            x2av+=x[2][i];
+        }
+        x2av = x2av/n;
+
+        for (int i = 0; i < n; i++) {
+            numerator+=(x[1][i]-x1av)*(x[2][i]-x2av);
+        }
+        for (int i = 0; i < n; i++) {
+            denominatorL+=(x[1][i]-x1av)*(x[1][i]-x1av);
+        }
+        for (int i = 0; i < n; i++) {
+            denominatorR+=(x[2][i]-x2av)*(x[2][i]-x2av);
+        }
+        denominator = Math.sqrt(denominatorL*denominatorR);
+        corell=numerator/denominator;
+        System.out.println();
+        System.out.println();
+        System.out.println("Correlation "+corell);
+        return corell;
+    }
+
+
+
+    public double[] countModelYY(){
+        System.out.println("=====================");
+        System.out.println("Y instead of X");
+        System.out.println("=====================");
+        double[][]f=new double[3][this.n];
+        int ii = 0;
+        for (int i = 0; i < this.n; i++) {
+            f[0][i]=1;
+        }
+        boolean firstStep = true;
+        for (int i = 0; i < this.countFactors; i++) {
+            for (int j = i+1; j < this.countFactors; j++) {
+                System.out.println("i="+i);
+                System.out.println("j="+j);
+                for (int k = 0; k < this.n; k++) {
+                    f[1][k]=FactorsX[i][k];
+                    f[2][k]=FactorsX[j][k];
+                    System.out.println("f[1]["+k+"]="+f[1][k]);
+                    System.out.println("f[2]["+k+"]="+f[2][k]);
+                }
+                double[] r = this.getModel(f, this.FactualResultsY, this.n); //вернули коэффициенты
+                this.ModelResultsY = this.countModelY1(r,f,this.n); //вернули теоретические результаты
+                this.RegressionResidueE = this.countRegressionResidueE(this.FactualResultsY,this.ModelResultsY,this.n);
+                this.dw = this.countDW(this.RegressionResidueE, this.n);
+                this.R = this.R(f, this.FactualResultsY, r);
+                this.corell(f,this.n);
+                this.heteroscedasticity = this.countGolfildCvant(this.FactualResultsY, this.ModelResultsY , f, this.n);
+
+                if (firstStep) {
+                    this.bestModelResultsY =  this.ModelResultsY;
+                    this.bestModelR =  this.R;
+                    this.bestModelDW = this.dw;
+                    this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                    this.bestModelFactor1 = i;
+                    this.getBestModelFactor2 = j;
+                    firstStep = false;
+                }
+                else {
+
+                    if (this.R>this.bestModelR) {
+                        if (this.dw<this.bestModelDW) {
+                            if (this.heteroscedasticity != true || this.heteroscedasticity == this.bestModelHeteroscedasticity) {
+                                this.bestModelResultsY =  this.ModelResultsY;
+                                this.bestModelR =  this.R;
+                                this.bestModelDW = this.dw;
+                                this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                                this.bestModelFactor1 = i;
+                                this.getBestModelFactor2 = j;
+
+                                System.out.println("Best model for family:  ");
+                                System.out.println("==========================");
+                                System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+                                System.out.println("factor 1: " + this.bestModelFactor1 + " factor 2: " + this.getBestModelFactor2);
+                            }
+                        }
+                    }
+
+                }
+//                Голфилд Квант
+            }
+        }
+
+        System.out.println("Best model for family:  ");
+        System.out.println("==========================");
+        System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+        System.out.println("factor 1: " + this.bestModelFactor1 + "factor 2: " + this.getBestModelFactor2);
+        return this.bestModelResultsY;
+    }
+
+
+
+    public double[] countModelX1(){
         double[][]f=new double[3][this.n];
         int ii = 0;
         for (int i = 0; i < this.n; i++) {
             f[0][i]=1;
         }
 
+
+        boolean firstStep = true;
         for (int i = 0; i < 4; i++) {
             for (int j = i+1; j < 4; j++) {
                 System.out.println("i="+i);
@@ -310,17 +456,252 @@ public class StatisticModel {
                     System.out.println("f[1]["+k+"]="+f[1][k]);
                     System.out.println("f[2]["+k+"]="+f[2][k]);
                 }
-                double[] r = this.getModel(f, this.FactualResultsY, this.n);
-                this.ModelResultsY = this.countModelY1(r,f,this.n);
+                double[] r = this.getModel(f, this.FactualResultsY, this.n); //вернули коэффициенты
+                this.ModelResultsY = this.countModelY1(r,f,this.n); //вернули теоретические результаты
                 this.RegressionResidueE = this.countRegressionResidueE(this.FactualResultsY,this.ModelResultsY,this.n);
                 this.dw = this.countDW(this.RegressionResidueE, this.n);
-                this.R(f, this.FactualResultsY, r);
-                this.countGolfildCvant(this.FactualResultsY, this.ModelResultsY , f, this.n);
+                this.R = this.R(f, this.FactualResultsY, r);
+                this.corell(f,this.n);
+                this.heteroscedasticity = this.countGolfildCvant(this.FactualResultsY, this.ModelResultsY , f, this.n);
 
+                if (firstStep) {
+                    this.bestModelResultsY =  this.ModelResultsY;
+                    this.bestModelR =  this.R;
+                    this.bestModelDW = this.dw;
+                    this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                    this.bestModelFactor1 = i;
+                    this.getBestModelFactor2 = j;
+                    firstStep = false;
+                }
+                else {
 
+                    if (this.R>this.bestModelR) {
+                        if (this.dw<this.bestModelDW) {
+                            if (this.heteroscedasticity != true || this.heteroscedasticity == this.bestModelHeteroscedasticity) {
+                                this.bestModelResultsY =  this.ModelResultsY;
+                                this.bestModelR =  this.R;
+                                this.bestModelDW = this.dw;
+                                this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                                this.bestModelFactor1 = i;
+                                this.getBestModelFactor2 = j;
+
+                                System.out.println("Best model for family:  ");
+                                System.out.println("==========================");
+                                System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+                                System.out.println("factor 1: " + this.bestModelFactor1 + " factor 2: " + this.getBestModelFactor2);
+                            }
+                        }
+                    }
+
+                }
 //                Голфилд Квант
             }
         }
+
+        System.out.println("Best model for family:  ");
+        System.out.println("==========================");
+        System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+        System.out.println("factor 1: " + this.bestModelFactor1 + "factor 2: " + this.getBestModelFactor2);
+        return this.bestModelResultsY;
+    }
+
+    public double[] countModelLog(){
+        double[][]f=new double[3][this.n];
+        int ii = 0;
+        for (int i = 0; i < this.n; i++) {
+            f[0][i]=1;
+        }
+        boolean firstStep = true;
+        for (int i = 0; i < 4; i++) {
+            for (int j = i+1; j < 4; j++) {
+                System.out.println("i="+i);
+                System.out.println("j="+j);
+                for (int k = 0; k < this.n; k++) {
+                    f[1][k]=Math.log(FactorsX[i][k]);
+                    f[2][k]=Math.log(FactorsX[j][k]);
+                    System.out.println("f[1]["+k+"]="+f[1][k]);
+                    System.out.println("f[2]["+k+"]="+f[2][k]);
+                }
+                double[] r = this.getModel(f, this.FactualResultsY, this.n); //вернули коэффициенты
+                this.ModelResultsY = this.countModelY1(r,f,this.n); //вернули теоретические результаты
+                this.RegressionResidueE = this.countRegressionResidueE(this.FactualResultsY,this.ModelResultsY,this.n);
+                this.dw = this.countDW(this.RegressionResidueE, this.n);
+                this.R = this.R(f, this.FactualResultsY, r);
+                this.corell(f,this.n);
+                this.heteroscedasticity = this.countGolfildCvant(this.FactualResultsY, this.ModelResultsY , f, this.n);
+
+                if (firstStep) {
+                    this.bestModelResultsY =  this.ModelResultsY;
+                    this.bestModelR =  this.R;
+                    this.bestModelDW = this.dw;
+                    this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                    this.bestModelFactor1 = i;
+                    this.getBestModelFactor2 = j;
+                    firstStep = false;
+                }
+                else {
+
+                    if (this.R>this.bestModelR) {
+                        if (this.dw<this.bestModelDW) {
+                            if (this.heteroscedasticity != true || this.heteroscedasticity == this.bestModelHeteroscedasticity) {
+                                this.bestModelResultsY =  this.ModelResultsY;
+                                this.bestModelR =  this.R;
+                                this.bestModelDW = this.dw;
+                                this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                                this.bestModelFactor1 = i;
+                                this.getBestModelFactor2 = j;
+
+                                System.out.println("Best model for family:  ");
+                                System.out.println("==========================");
+                                System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+                                System.out.println("factor 1: " + this.bestModelFactor1 + " factor 2: " + this.getBestModelFactor2);
+                            }
+                        }
+                    }
+
+                }
+//                Голфилд Квант
+            }
+        }
+
+        System.out.println("Best model for family:  ");
+        System.out.println("==========================");
+        System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+        System.out.println("factor 1: " + this.bestModelFactor1 + "factor 2: " + this.getBestModelFactor2);
+        return this.bestModelResultsY;
+    }
+
+
+    public double[] countModelX2(){
+        double[][]f=new double[3][this.n];
+        int ii = 0;
+        for (int i = 0; i < this.n; i++) {
+            f[0][i]=1;
+        }
+        boolean firstStep = true;
+        for (int i = 0; i < 4; i++) {
+            for (int j = i+1; j < 4; j++) {
+                System.out.println("i="+i);
+                System.out.println("j="+j);
+                for (int k = 0; k < this.n; k++) {
+                    f[1][k]=FactorsX[i][k]*FactorsX[i][k];
+                    f[2][k]=FactorsX[j][k]*FactorsX[i][k];
+                    System.out.println("f[1]["+k+"]="+f[1][k]);
+                    System.out.println("f[2]["+k+"]="+f[2][k]);
+                }
+                double[] r = this.getModel(f, this.FactualResultsY, this.n); //вернули коэффициенты
+                this.ModelResultsY = this.countModelY1(r,f,this.n); //вернули теоретические результаты
+                this.RegressionResidueE = this.countRegressionResidueE(this.FactualResultsY,this.ModelResultsY,this.n);
+                this.dw = this.countDW(this.RegressionResidueE, this.n);
+                this.R = this.R(f, this.FactualResultsY, r);
+                this.corell(f,this.n);
+                this.heteroscedasticity = this.countGolfildCvant(this.FactualResultsY, this.ModelResultsY , f, this.n);
+
+                if (firstStep) {
+                    this.bestModelResultsY =  this.ModelResultsY;
+                    this.bestModelR =  this.R;
+                    this.bestModelDW = this.dw;
+                    this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                    this.bestModelFactor1 = i;
+                    this.getBestModelFactor2 = j;
+                    firstStep = false;
+                }
+                else {
+
+                    if (this.R>this.bestModelR) {
+                        if (this.dw<this.bestModelDW) {
+                            if (this.heteroscedasticity != true || this.heteroscedasticity == this.bestModelHeteroscedasticity) {
+                                this.bestModelResultsY =  this.ModelResultsY;
+                                this.bestModelR =  this.R;
+                                this.bestModelDW = this.dw;
+                                this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                                this.bestModelFactor1 = i;
+                                this.getBestModelFactor2 = j;
+
+                                System.out.println("Best model for family:  ");
+                                System.out.println("==========================");
+                                System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+                                System.out.println("factor 1: " + this.bestModelFactor1 + " factor 2: " + this.getBestModelFactor2);
+                            }
+                        }
+                    }
+
+                }
+//                Голфилд Квант
+            }
+        }
+
+        System.out.println("Best model for family:  ");
+        System.out.println("==========================");
+        System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+        System.out.println("factor 1: " + this.bestModelFactor1 + "factor 2: " + this.getBestModelFactor2);
+        return this.bestModelResultsY;
+    }
+
+    public double[] countModelX3(){
+        double[][]f=new double[3][this.n];
+        int ii = 0;
+        for (int i = 0; i < this.n; i++) {
+            f[0][i]=1;
+        }
+        boolean firstStep = true;
+        for (int i = 0; i < 4; i++) {
+            for (int j = i+1; j < 4; j++) {
+                System.out.println("i="+i);
+                System.out.println("j="+j);
+                for (int k = 0; k < this.n; k++) {
+                    f[1][k]=FactorsX[i][k]*FactorsX[i][k]*FactorsX[i][k];
+                    f[2][k]=FactorsX[j][k]*FactorsX[i][k]*FactorsX[i][k];
+                    System.out.println("f[1]["+k+"]="+f[1][k]);
+                    System.out.println("f[2]["+k+"]="+f[2][k]);
+                }
+                double[] r = this.getModel(f, this.FactualResultsY, this.n); //вернули коэффициенты
+                this.ModelResultsY = this.countModelY1(r,f,this.n); //вернули теоретические результаты
+                this.RegressionResidueE = this.countRegressionResidueE(this.FactualResultsY,this.ModelResultsY,this.n);
+                this.dw = this.countDW(this.RegressionResidueE, this.n);
+                this.R = this.R(f, this.FactualResultsY, r);
+                this.corell(f,this.n);
+                this.heteroscedasticity = this.countGolfildCvant(this.FactualResultsY, this.ModelResultsY , f, this.n);
+
+                if (firstStep) {
+                    this.bestModelResultsY =  this.ModelResultsY;
+                    this.bestModelR =  this.R;
+                    this.bestModelDW = this.dw;
+                    this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                    this.bestModelFactor1 = i;
+                    this.getBestModelFactor2 = j;
+                    firstStep = false;
+                }
+                else {
+
+                    if (this.R>this.bestModelR) {
+                        if (this.dw<this.bestModelDW) {
+                            if (this.heteroscedasticity != true || this.heteroscedasticity == this.bestModelHeteroscedasticity) {
+                                this.bestModelResultsY =  this.ModelResultsY;
+                                this.bestModelR =  this.R;
+                                this.bestModelDW = this.dw;
+                                this.bestModelHeteroscedasticity = this.heteroscedasticity;
+                                this.bestModelFactor1 = i;
+                                this.getBestModelFactor2 = j;
+
+                                System.out.println("Best model for family:  ");
+                                System.out.println("==========================");
+                                System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+                                System.out.println("factor 1: " + this.bestModelFactor1 + " factor 2: " + this.getBestModelFactor2);
+                            }
+                        }
+                    }
+
+                }
+//                Голфилд Квант
+            }
+        }
+
+        System.out.println("Best model for family:  ");
+        System.out.println("==========================");
+        System.out.println("R: " + this.bestModelR +" DW: " + this.bestModelDW + " heteroscedasticity: "+  this.bestModelHeteroscedasticity);
+        System.out.println("factor 1: " + this.bestModelFactor1 + "factor 2: " + this.getBestModelFactor2);
+        return this.bestModelResultsY;
     }
 
 
@@ -352,5 +733,29 @@ public class StatisticModel {
             System.out.println(pair.getValue());
         }
 
+    }
+
+    public double[] getBestModelResultsY() {
+        return bestModelResultsY;
+    }
+
+    public double getBestModelR() {
+        return bestModelR;
+    }
+
+    public double getBestModelDW() {
+        return bestModelDW;
+    }
+
+    public boolean isBestModelHeteroscedasticity() {
+        return bestModelHeteroscedasticity;
+    }
+
+    public int getN() {
+        return n;
+    }
+
+    public double[] getFactualResultsY() {
+        return FactualResultsY;
     }
 }
